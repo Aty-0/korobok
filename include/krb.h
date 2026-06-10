@@ -467,12 +467,12 @@ namespace krb {
         return source;
     }
 
-    static constexpr auto COMENT_TOKEN_SYMBOL = '#';
+    static constexpr auto COMMENT_TOKEN_SYMBOL = '#';
     static constexpr auto GROUP_TOKEN_SYMBOL = '$'; 
     
     inline std::optional<Token> Krb::parse_line(std::string_view line) {  
         // Skip comments
-        if (line.front() == COMENT_TOKEN_SYMBOL) {
+        if (line.front() == COMMENT_TOKEN_SYMBOL) {
             return Token {
                 "", // FIXME ?
                 std::monostate { },
