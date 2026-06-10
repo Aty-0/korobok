@@ -95,15 +95,16 @@ namespace krb {
 
         // The all valid value types for token
         using ValueVariants = std::variant<
-            // All valid simple types
+            // For empty or undefined tokens
+            std::monostate,
+
+            // Simple types
             // TODO: support for std::int8_t, std::int16_t, std::int32_t, std::int64_t, double
             float, 
             std::string,
             const char*,
             bool,
-            // For empty or undefined tokens
-            std::monostate,
-            // All valid array types 
+            // Array types 
             // TODO: support for vector of std::int8_t, std::int16_t, std::int32_t, std::int64_t, double
             std::vector<float>,
             std::vector<std::string>
