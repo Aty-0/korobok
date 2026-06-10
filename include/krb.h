@@ -61,12 +61,12 @@ namespace korobok {
 
         static inline constexpr bool is_special_symbol(char chr) {
             constexpr std::array<char, 6> SPECIAL_CASES = {  '\f', '\n', '\r', '\t', '\v' };
-            return std::ranges::any_of(SPECIAL_CASES, [chr](char c) { return chr == c; });
+            return std::ranges::find(SPECIAL_CASES, chr) != SPECIAL_CASES.end();
         }
 
         static inline constexpr bool is_white_space(char chr) {
             constexpr std::array<char, 6> WHITE_SPACE_CASES = { ' ', '\f', '\n', '\r', '\t', '\v' };
-            return std::ranges::any_of(WHITE_SPACE_CASES, [chr](char c) { return chr == c; });
+            return std::ranges::find(WHITE_SPACE_CASES, chr) != WHITE_SPACE_CASES.end();
         }
 
         // Dummy function to make something like this: 1,2,3,4,5...
