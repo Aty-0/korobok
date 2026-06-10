@@ -1,0 +1,132 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+      "major": 3,
+      "minor": 20,
+      "patch": 0
+    },
+    "configurePresets": [
+        {
+          "name": "base-gcc",
+          "hidden": true,
+          "generator": "Ninja",
+          "binaryDir": "${sourceDir}/build/${presetName}",
+          "cacheVariables": {
+            "CMAKE_CXX_COMPILER": "g++"
+          }
+        },
+        {
+          "name": "debug-gcc",
+          "displayName": "Debug (GCC)",
+          "description": "Debug build using GCC",
+          "inherits": "base-gcc",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug"
+          }
+        },
+        {
+          "name": "debug-gcc-test",
+          "displayName": "Test debug (GCC)",
+          "description": "Test debug build using GCC",
+          "inherits": "base-gcc",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug",
+            "KRB_BUILD_TEST": "ON"
+          }
+        },
+        {
+          "name": "release-gcc",
+          "displayName": "Release (GCC)",
+          "description": "Release build using GCC",
+          "inherits": "base-gcc",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release"
+          }
+        },
+        {
+          "name": "release-test-gcc",
+          "displayName": "Test release (GCC)",
+          "description": "Test release build using GCC",
+          "inherits": "base-gcc",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "KRB_BUILD_TEST": "ON"
+          }
+        },
+        {
+          "name": "base-msvc",
+          "hidden": true,
+          "generator": "Ninja",
+          "binaryDir": "${sourceDir}/build/${presetName}",
+          "cacheVariables": {
+            "CMAKE_C_COMPILER": "cl.exe",
+            "CMAKE_CXX_COMPILER": "cl.exe"
+          },
+          "condition": {
+            "type": "equals",
+            "lhs": "${hostSystemName}",
+            "rhs": "Windows"
+          }
+        },
+        {
+          "name": "debug-msvc",
+          "displayName": "Debug (MSVC)",
+          "description": "Debug build using MSVC",
+          "inherits": "base-msvc",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug"
+          }
+        },
+        {
+          "name": "debug-test-msvc",
+          "displayName": "Debug Test (MSVC)",
+          "description": "Test debug build using MSVC",
+          "inherits": "base-msvc",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug",
+            "KRB_BUILD_TEST": "ON"
+          }
+        },
+        {
+          "name": "release-msvc",
+          "displayName": "Release (MSVC)",
+          "description": "Release build using MSVC",
+          "inherits": "base-msvc",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release"
+          }
+        },
+        {
+          "name": "release-test-msvc",
+          "displayName": "Release Test (MSVC)",
+          "description": "Test release build using MSVC",
+          "inherits": "base-msvc",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "KRB_BUILD_TEST": "ON"
+          }
+        }
+      ],
+      "buildPresets": [
+        {
+          "name": "debug-gcc",
+          "displayName": "Build Debug (GCC)",
+          "configurePreset": "debug-gcc"
+        },
+        {
+          "name": "release-gcc",
+          "displayName": "Build Release (GCC)",
+          "configurePreset": "release-gcc"
+        },
+        {
+          "name": "debug-msvc",
+          "displayName": "Build Debug (MSVC)",
+          "configurePreset": "debug-msvc"
+        },
+        {
+          "name": "release-msvc",
+          "displayName": "Build Release (MSVC)",
+          "configurePreset": "release-msvc"
+        }
+    ]
+}
