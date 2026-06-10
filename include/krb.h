@@ -27,7 +27,7 @@
         #define KRB_WARN(fmt, ...) KRB_EXTERNAL_WARN("krb: " fmt, ##__VA_ARGS__)
         #define KRB_ERROR(fmt, ...) KRB_EXTERNAL_ERROR("krb: " fmt, ##__VA_ARGS__)
     #else
-        namespace krb::logs {
+        namespace korobok::logs {
             template <typename... Args>
             inline static void print(std::format_string<Args...> fmt, Args&&... args) {
                 const auto text = std::format(fmt, std::forward<Args>(args)...);
@@ -35,9 +35,9 @@
             }
         }
 
-        #define KRB_DEBUG(fmt, ...) krb::logs::print("krb debug: " fmt, ##__VA_ARGS__)
-        #define KRB_WARN(fmt, ...) krb::logs::print("krb warn: " fmt, ##__VA_ARGS__)
-        #define KRB_ERROR(fmt, ...) krb::logs::print("krb error: " fmt, ##__VA_ARGS__)
+        #define KRB_DEBUG(fmt, ...) korobok::logs::print("krb debug: " fmt, ##__VA_ARGS__)
+        #define KRB_WARN(fmt, ...) korobok::logs::print("krb warn: " fmt, ##__VA_ARGS__)
+        #define KRB_ERROR(fmt, ...) korobok::logs::print("krb error: " fmt, ##__VA_ARGS__)
     #endif
 #else 
     #define KRB_DEBUG(fmt, ...) 
@@ -45,7 +45,7 @@
     #define KRB_ERROR(fmt, ...)
 #endif
 
-namespace krb {
+namespace korobok {
     namespace utils {
         static inline constexpr bool is_dot(char chr) {
             return chr == '.';
@@ -81,20 +81,20 @@ namespace krb {
         }
     }
 
-    struct Token {
-        enum class Types {
-            None, // Empty or undefined token
-            String, 
-            Number,
-            Bool,
-            ArrayStrings,
-            ArrayNumbers,
-            Comment, // Special token for comments
-            Group // If we need define something special
+    struct token {
+        enum class types {
+            none, // Empty or undefined token
+            string, 
+            number,
+            boolean,
+            array_strings,
+            array_numbers,
+            comment, // Special token for comments
+            group // If we need define something special
         };
 
         // The all valid value types for token
-        using ValueVariants = std::variant<
+        using value_variants = std::variant<
             // For empty or undefined tokens
             std::monostate,
 
@@ -120,17 +120,17 @@ namespace krb {
             std::is_same_v<T, std::vector<float>>;
 
 
-        constexpr Token() :
+        constexpr token() :
             m_name { },
             m_value { std::monostate { } },
-            m_type { Types::None }  { }
+            m_type { types::none }  { }
 
-        explicit constexpr Token(std::string_view name, ValueVariants value, Types type) : 
+        explicit constexpr token(std::string_view name, value_variants value, types type) : 
             m_name { name }, 
             m_value { value }, 
             m_type { type } { }
 
-        constexpr ~Token() = default;
+        constexpr ~token() = default;
 
         // Get name
         [[nodiscard]] constexpr std::string_view name() const;
@@ -139,94 +139,95 @@ namespace krb {
         [[nodiscard]] constexpr std::string& name(); 
         
         // Get type 
-        [[nodiscard]] constexpr Types type() const;
+        [[nodiscard]] constexpr types type() const;
         
         // Get type ref
-        [[nodiscard]] constexpr Types& type();
+        [[nodiscard]] constexpr types& type();
         
         // Get value ref 
         template <typename T>
-        requires Token::is_valid_value_type<T>
+        requires token::is_valid_value_type<T>
         [[nodiscard]] constexpr std::optional<std::reference_wrapper<T>> value();
 
         // Get value 
         template <typename T>
-        requires Token::is_valid_value_type<T>
+        requires token::is_valid_value_type<T>
         [[nodiscard]] constexpr std::optional<std::reference_wrapper<const T>> value() const;
         
-        [[nodiscard]] const ValueVariants& raw_variant() const;
+        [[nodiscard]] const value_variants& raw_variant() const;
 
         template <typename T>
-        requires Token::is_valid_value_type<T>
+        requires token::is_valid_value_type<T>
         operator T() const;
         
         template <typename T>
-        requires Token::is_valid_value_type<T>
-        Token& operator=(const T& right);
+        requires token::is_valid_value_type<T>
+        token& operator=(const T& right);
 
         template <typename T>
-        requires Token::is_valid_value_type<std::decay_t<T>>
-        Token& operator=(T&& right);
+        requires token::is_valid_value_type<std::decay_t<T>>
+        token& operator=(T&& right);
 
 
-        [[nodiscard]] static constexpr Types value_type(const ValueVariants& value);
+        [[nodiscard]] static constexpr types value_type(const value_variants& value);
 
-        [[nodiscard]] static constexpr std::string type_str(Types type);
+        [[nodiscard]] static constexpr std::string type_str(types type);
         private:
             std::string m_name;
-            ValueVariants m_value;
-            Types m_type;
+            value_variants m_value;
+            types m_type;
     };
 
-    inline const Token::ValueVariants& Token::raw_variant() const {
+    inline const token::value_variants& token::raw_variant() const {
         return m_value;
     }
 
     // TODO: idk can be improved ?
-    inline constexpr Token::Types Token::value_type(const ValueVariants& value){
-        return std::visit([]<typename T>(const T&) -> Token::Types {
+    inline constexpr token::types token::value_type(const value_variants& value){
+        return std::visit([]<typename T>(const T&) -> token::types {
             if constexpr (std::is_same_v<T, std::string>) {
-                return Token::Types::String;
+                return token::types::string;
             }    
             else if constexpr (std::is_same_v<T, const char*>) {
-                return Token::Types::String;
+                return token::types::string;
             }            
             else if constexpr (std::is_same_v<T, float>) {
-                return Token::Types::Number;
+                return token::types::number;
             }                    
             else if constexpr (std::is_same_v<T, bool>) {
-                return Token::Types::Bool;
+                return token::types::boolean;
             }                     
             else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
-                return Token::Types::ArrayStrings;
+                return token::types::array_strings;
             } 
             else if constexpr (std::is_same_v<T, std::vector<float>>) {
-                return Token::Types::ArrayNumbers;
+                return token::types::array_numbers;
             }       
             else if constexpr (std::is_same_v<T, std::monostate>) {
-                return Token::Types::None;
+                return token::types::none;
             } 
-            return Token::Types::None; 
+
+            return token::types::none; 
         }, value);
     }
 
-    inline constexpr std::string Token::type_str(Token::Types type) {
+    inline constexpr std::string token::type_str(token::types type) {
         switch (type) {
-            case Token::Types::None: 
+            case token::types::none: 
                 return "None";
-            case Token::Types::String: 
+            case token::types::string: 
                 return "String";
-            case Token::Types::Number: 
+            case token::types::number: 
                 return "Number";
-            case Token::Types::Bool: 
-                return "Bool";
-            case Token::Types::ArrayStrings: 
-                return "ArrayStrings";
-            case Token::Types::ArrayNumbers: 
-                return "ArrayNumbers";
-            case Token::Types::Comment: 
+            case token::types::boolean: 
+                return "Boolean";
+            case token::types::array_strings: 
+                return "Array Strings";
+            case token::types::array_numbers: 
+                return "Array Numbers";
+            case token::types::comment: 
                 return "Comment";
-            case Token::Types::Group: 
+            case token::types::group: 
                 return "Group";
         }
 
@@ -234,24 +235,24 @@ namespace krb {
     }
     
     template <typename T>
-    requires Token::is_valid_value_type<std::decay_t<T>>
-    Token& Token::operator=(T&& right) {
+    requires token::is_valid_value_type<std::decay_t<T>>
+    token& token::operator=(T&& right) {
         m_value = std::forward<T>(right); 
         m_type = value_type(m_value);    
         return *this;
     }
 
     template <typename T>
-    requires Token::is_valid_value_type<T>
-    inline Token& Token::operator=(const T& right) {
+    requires token::is_valid_value_type<T>
+    inline token& token::operator=(const T& right) {
         m_value = right; 
         m_type = value_type(m_value);    
         return *this;
     }
 
     template <typename T> 
-    requires Token::is_valid_value_type<T>
-    inline Token::operator T() const {
+    requires token::is_valid_value_type<T>
+    inline token::operator T() const {
         auto result = value<T>();
         if (!result.has_value()) {
             throw std::bad_variant_access();
@@ -261,25 +262,25 @@ namespace krb {
     }
 
     
-    inline constexpr Token::Types& Token::type() {
+    inline constexpr token::types& token::type() {
         return m_type;
     }
     
-    inline constexpr Token::Types Token::type() const {
+    inline constexpr token::types token::type() const {
         return m_type;
     }
 
-    inline constexpr std::string& Token::name() {
+    inline constexpr std::string& token::name() {
         return m_name;
     }
     
-    inline constexpr std::string_view Token::name() const {
+    inline constexpr std::string_view token::name() const {
         return m_name;
     }
 
     template <typename T>
-    requires Token::is_valid_value_type<T>
-    inline constexpr std::optional<std::reference_wrapper<T>> Token::value() {
+    requires token::is_valid_value_type<T>
+    inline constexpr std::optional<std::reference_wrapper<T>> token::value() {
         if (auto* value = std::get_if<T>(&m_value)) {
             return *value;
         }
@@ -288,8 +289,8 @@ namespace krb {
     }
 
     template <typename T>
-    requires Token::is_valid_value_type<T>
-    inline constexpr std::optional<std::reference_wrapper<const T>> Token::value() const {
+    requires token::is_valid_value_type<T>
+    inline constexpr std::optional<std::reference_wrapper<const T>> token::value() const {
         if (const auto* value = std::get_if<T>(&m_value)) {
             return *value;
         }
@@ -297,54 +298,52 @@ namespace krb {
         return std::nullopt;
     }
 
-    class Krb {
+    class krb {
         public:
-            Krb() = default;            
-            ~Krb() = default;
+            krb() = default;            
+            ~krb() = default;
 
             // Convert text to tokens 
-            [[nodiscard]] std::optional<std::span<const Token>> from(std::string_view source);
+            [[nodiscard]] std::optional<std::span<const token>> from(std::string_view source);
 
             // Convert tokens to text 
             [[nodiscard]] std::string dump() const;
             
             // Get tokens
-            [[nodiscard]] std::span<const Token> tokens() const;
+            [[nodiscard]] std::span<const token> tokens() const;
             
             // Is token list are empty
             [[nodiscard]] constexpr bool empty() const;
             
             // Get token from list
-            [[nodiscard]] constexpr std::optional<std::reference_wrapper<Token>> token(std::string_view name);
-            [[nodiscard]] constexpr std::optional<std::reference_wrapper<const Token>> token(std::string_view name) const;
+            [[nodiscard]] constexpr std::optional<std::reference_wrapper<token>> get(std::string_view name);
+            [[nodiscard]] constexpr std::optional<std::reference_wrapper<const token>> get(std::string_view name) const;
 
-            [[nodiscard]] Token at(std::string_view name);
-            [[nodiscard]] const Token& at(std::string_view name) const;
+            [[nodiscard]] token at(std::string_view name);
+            [[nodiscard]] const token& at(std::string_view name) const;
 
-            [[nodiscard]] Token& operator[] (std::string_view name);
+            [[nodiscard]] token& operator[] (std::string_view name);
         private:
-            [[nodiscard]] std::optional<Token> parse_line(std::string_view line);
-            std::vector<Token> m_tokens;
+            [[nodiscard]] std::optional<token> parse_line(std::string_view line);
+            std::vector<token> m_tokens;
     };
 
-    inline Token& Krb::operator[] (std::string_view name) {
-        const auto& result = token(name);
+    inline token& krb::operator[] (std::string_view name) {
+        const auto& result = get(name);
         if (!result.has_value()) {
-            auto token = Token {
+            m_tokens.push_back(token {
                 name,
                 std::monostate { },
-                Token::Types::None
-            };
-
-            m_tokens.push_back(token);
+                token::types::none
+            });
             return m_tokens.back();
         }
 
         return result.value();
     }
 
-    inline const Token& Krb::at(std::string_view name) const {
-        const auto& result = token(name);
+    inline const token& krb::at(std::string_view name) const {
+        const auto& result = get(name);
         if (!result.has_value()) {
             throw std::invalid_argument("can't find token");
         }
@@ -352,11 +351,11 @@ namespace krb {
         return result.value();
     }
 
-    inline Token Krb::at(std::string_view name) {
-        return const_cast<Token&>(std::as_const(*this).at(name));
+    inline token krb::at(std::string_view name) {
+        return const_cast<token&>(std::as_const(*this).at(name));
     }
 
-    inline constexpr std::optional<std::reference_wrapper<const Token>> Krb::token(std::string_view name) const {
+    inline constexpr std::optional<std::reference_wrapper<const token>> krb::get(std::string_view name) const {
         const auto it = std::ranges::find_if(m_tokens, [name](const auto& token) { return token.name() == name; });
         if (it == m_tokens.end()) {
             return std::nullopt;
@@ -365,23 +364,23 @@ namespace krb {
         return *it;
     }
 
-    inline constexpr std::optional<std::reference_wrapper<Token>> Krb::token(std::string_view name) {
-        auto result = std::as_const(*this).token(name);
+    inline constexpr std::optional<std::reference_wrapper<token>> krb::get(std::string_view name) {
+        auto result = std::as_const(*this).get(name);
         if (!result) {
             return std::nullopt;
         } 
-        return const_cast<Token&>(result->get());
+        return const_cast<token&>(result->get());
     }
 
-    inline constexpr bool Krb::empty() const {
+    inline constexpr bool krb::empty() const {
         return m_tokens.empty();
     }
 
-    inline std::span<const Token> Krb::tokens() const {
+    inline std::span<const token> krb::tokens() const {
         return m_tokens;
     }
 
-    inline std::string Krb::dump() const {
+    inline std::string krb::dump() const {
         if (m_tokens.empty()) {
             return "";
         }
@@ -389,7 +388,7 @@ namespace krb {
         std::string source { };
         for (const auto& token : m_tokens) {
             switch (token.type()) {
-                case Token::Types::String: {
+                case token::types::string: {
                     const auto& resultString = token.value<std::string>();
                     if (resultString.has_value()) {
                         source += std::format("{}:\"{}\"\n", token.name(), resultString.value().get());
@@ -401,7 +400,7 @@ namespace krb {
                     }
                     break;
                 }
-                case Token::Types::Number: {
+                case token::types::number: {
                     // TODO: Number type ?
                     const auto& result = token.value<float>();
                     if (result.has_value()) {
@@ -411,7 +410,7 @@ namespace krb {
                     }
                     break;
                 }
-                case Token::Types::Bool: {
+                case token::types::boolean: {
                     const auto& result = token.value<bool>();
                     if (result.has_value()) {
                         source += std::format("{}:{}\n", token.name(), ((result.value().get()) ? "true" : "false"));
@@ -420,7 +419,7 @@ namespace krb {
                     }
                     break;
                 }                 
-                case Token::Types::ArrayStrings: {
+                case token::types::array_strings: {
                     const auto& result = token.value<std::vector<std::string>>();
                     if (result.has_value()) {
                         const auto& stringsVector = result.value().get();
@@ -436,7 +435,7 @@ namespace krb {
                     }
                     break;
                 }                
-                case Token::Types::ArrayNumbers: {
+                case token::types::array_numbers: {
                     // TODO: Number type ?
                     const auto& result = token.value<std::vector<float>>();
                     if (result.has_value()) {
@@ -453,12 +452,12 @@ namespace krb {
                     }
                     break;
                 }
-                case Token::Types::Group: {
+                case token::types::group: {
                     source += std::format("$:{}\n", token.name());
                     break;
                 }
-                case Token::Types::Comment:
-                case Token::Types::None: {
+                case token::types::comment:
+                case token::types::none: {
                     break;
                 }
             }
@@ -470,13 +469,13 @@ namespace krb {
     static constexpr auto COMMENT_TOKEN_SYMBOL = '#';
     static constexpr auto GROUP_TOKEN_SYMBOL = '$'; 
     
-    inline std::optional<Token> Krb::parse_line(std::string_view line) {  
+    inline std::optional<token> krb::parse_line(std::string_view line) {  
         // Skip comments
         if (line.front() == COMMENT_TOKEN_SYMBOL) {
-            return Token {
+            return token {
                 "", // FIXME ?
                 std::monostate { },
-                Token::Types::Comment
+                token::types::comment
             };
         }
         // Slice two values to name and value 
@@ -491,10 +490,10 @@ namespace krb {
         auto value = splitValuesVector[1];
 
         if (name.size() == 1 && name.front() == GROUP_TOKEN_SYMBOL) {                
-            return Token {
+            return token {
                 value, 
                 std::monostate { },
-                Token::Types::Group
+                token::types::group
             };
         } else { // Else we are parse name:value aka variable
             // If first character is whitespace 
@@ -511,18 +510,18 @@ namespace krb {
                     return std::nullopt;
                 }
                 
-                return Token {
+                return token {
                     name, 
                     numberValue,
-                    Token::Types::Number
+                    token::types::number
                 };
             } else if (value.front() == '"' && value.back() == '"') {
                 // Remove quotes
                 const auto& inner = value.substr(1, value.size() - 2);
-                return Token {
+                return token {
                     name, 
                     inner,
-                    Token::Types::String
+                    token::types::string
                 };
             } else if (value.front() == '[' && value.back() == ']') {
                 // Remove whitespaces / special symbols / brackets
@@ -537,10 +536,10 @@ namespace krb {
 
                 std::vector<std::string> elementsVector { elements.begin(), elements.end() };
                 if (elementsVector.empty()) {
-                    return Token {
+                    return token {
                         name, 
                         std::vector<float> { }, // FIXME: Not optimal 
-                        Token::Types::ArrayNumbers
+                        token::types::array_numbers
                     };
                 }
 
@@ -560,10 +559,10 @@ namespace krb {
                         numberVector.push_back(numberValue);
                     }
 
-                    return Token {
+                    return token {
                         name, 
                         numberVector,
-                        Token::Types::ArrayNumbers
+                        token::types::array_numbers
                     };
                 } else { // Else, convert to std::vector<std::string>
                     std::vector<std::string> stringsVector { };
@@ -573,20 +572,20 @@ namespace krb {
                         }
                     }
 
-                    return Token {
+                    return token {
                         name, 
                         stringsVector,
-                        Token::Types::ArrayStrings
+                        token::types::array_strings
                     }; 
                 }
 
                 KRB_ERROR("not supported array type!");
                 return std::nullopt;
             } else if (value == "true" || value == "false") {
-                return Token {
+                return token {
                     name, 
                     value == "true",
-                    Token::Types::Bool
+                    token::types::boolean
                 };
             }
         }
@@ -595,7 +594,7 @@ namespace krb {
         return std::nullopt;
     }
 
-    inline std::optional<std::span<const Token>> Krb::from(std::string_view source) {
+    inline std::optional<std::span<const token>> krb::from(std::string_view source) {
         if (!m_tokens.empty()) {
             m_tokens.clear();
         }
@@ -616,7 +615,7 @@ namespace krb {
             return std::nullopt;
         }
 
-        std::vector<Token> tokens { };
+        std::vector<token> tokens { };
         for (const auto& line : linesPool) {
             if (utils::is_white_space(line.front())) {
                 continue;
@@ -630,7 +629,7 @@ namespace krb {
                 return std::nullopt;
             }
             const auto& token = parsedLineResult.value();
-            if (token.type() == Token::Types::Comment) {
+            if (token.type() == token::types::comment) {
                 continue;
             }
 

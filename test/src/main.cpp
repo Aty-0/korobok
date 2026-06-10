@@ -5,7 +5,7 @@
 #include <optional>
 #include <sstream>
 
-namespace krb::io {
+namespace korobok::io {
     inline static std::optional<std::string> load_file(std::string_view path) {
         if (path.empty()) {
             KRB_ERROR("path is empty");
@@ -57,7 +57,7 @@ namespace krb::io {
 }
 
 static void test_parse_tokens(std::string_view source) {
-    krb::Krb data { };
+    korobok::krb data { };
     const auto& result = data.from(source);
     if (!result.has_value()) {
         KRB_ERROR("failed to read sources");
@@ -71,11 +71,11 @@ static void test_parse_tokens(std::string_view source) {
 
         switch (token.type())
         {
-            case krb::Token::Types::Group: {
+            case korobok::token::types::group: {
                 stream << "is group token";
                 break;
             }
-            case krb::Token::Types::ArrayNumbers: { 
+            case korobok::token::types::array_numbers: { 
                 const auto& result = token.value<std::vector<float>>();
                 if (result.has_value()) {
                     const auto& vecValue = result.value().get();
@@ -95,21 +95,21 @@ static void test_parse_tokens(std::string_view source) {
                 
                 break;
             }
-            case krb::Token::Types::Number: {
+            case korobok::token::types::number: {
                 const auto result = token.value<float>();
                 if (result.has_value()) {
                     stream << "value:" << result.value().get();
                 }
                 break;
             }
-            case krb::Token::Types::String: {
+            case korobok::token::types::string: {
                 const auto result = token.value<std::string>();
                 if (result.has_value()) {
                     stream << "value:" << result.value().get();
                 }
                 break;
             }
-            case krb::Token::Types::Bool: {
+            case korobok::token::types::boolean: {
                 const auto result = token.value<bool>();
                 if (result.has_value()) {
                     stream << "value:" << (result.value().get() ? "true" : "false");
@@ -128,7 +128,7 @@ static void test_parse_tokens(std::string_view source) {
 } 
 
 void test_get_token_value_float(std::string_view source, std::string_view name) {    
-    krb::Krb data { };
+    korobok::krb data { };
     if (!data.from(source).has_value()) {
         KRB_ERROR("failed to parse source");
         return;
@@ -139,7 +139,7 @@ void test_get_token_value_float(std::string_view source, std::string_view name) 
 }
 
 void test_dump(std::string_view source) {
-    krb::Krb data { };
+    korobok::krb data { };
     if (!data.from(source).has_value()) {
         KRB_ERROR("failed to parse source");
         return;
@@ -154,8 +154,8 @@ void test_dump(std::string_view source) {
 
     // Raw string test
     data["new_value_string"] = "hello";
-    const auto saved_type = krb::Token::type_str(data["new_value_string"].type());
-    const auto value_type = krb::Token::type_str(krb::Token::value_type(data["new_value_string"].raw_variant()));
+    const auto saved_type = korobok::token::type_str(data["new_value_string"].type());
+    const auto value_type = korobok::token::type_str(korobok::token::value_type(data["new_value_string"].raw_variant()));
     KRB_DEBUG("string, saved_type: {}, value_type: {}, value: {}", saved_type, value_type, static_cast<const char*>(data["new_value_string"]));
     
     data["new_value_number"] = 3.14f;
@@ -168,33 +168,33 @@ void test_dump(std::string_view source) {
     const auto& dumpData = data.dump();
     KRB_DEBUG("data:\n{}", dumpData);
     if (!dumpData.empty()) {
-        krb::io::save_file("test2.krb" , std::vector<char> { dumpData.begin(), dumpData.end() });
+        korobok::io::save_file("test2.krb" , std::vector<char> { dumpData.begin(), dumpData.end() });
     }
 }
 
 int main() {
     try {
-        const auto& fileResult = krb::io::load_file(KRB_TEST_SOURCE_FILENAME);
+        const auto& fileResult = korobok::io::load_file(KRB_TEST_SOURCE_FILENAME);
         if (!fileResult.has_value()) {
             return 0;
         }
         const auto& source = fileResult.value();
         
         KRB_DEBUG("========================");
-        KRB_DEBUG("testParseTokens");
+        KRB_DEBUG("test_parse_tokens");
         KRB_DEBUG("========================");
 
         test_parse_tokens(source);
 
         KRB_DEBUG("========================");
-        KRB_DEBUG("testGetTokenAndValue");
+        KRB_DEBUG("test_get_token_value_float");
         KRB_DEBUG("========================");
 
         test_get_token_value_float(source, "number_value");
         test_get_token_value_float(source, "number_dec_value");
 
         KRB_DEBUG("========================");
-        KRB_DEBUG("testDump");
+        KRB_DEBUG("test_dump");
         KRB_DEBUG("========================");
 
         test_dump(source);
