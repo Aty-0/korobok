@@ -110,7 +110,7 @@ if (result.has_value()) {
 #### `operator[]` with implicit type conversion
 
 ```cpp
-krb::Krb data;
+korobok::krb data;
 data.from("score:99.5\nname:\"Player One\"\nactive:true\n");
 
 float       score  = data["score"];  // 99.5
@@ -146,7 +146,7 @@ try {
 #### Reading arrays
 
 ```cpp
-krb::Krb data;
+korobok::krb data;
 data.from("coords:[10.0,20.0,30.0]\ntags:[\"a\",\"b\",\"c\"]\n");
 
 // Array of numbers
@@ -173,32 +173,32 @@ for (auto v : nums) {
 ### Iterating over tokens
 
 ```cpp
-krb::Krb data;
+korobok::krb data;
 data.from("x:1.0\ny:2.0\nlabel:\"origin\"\n");
 
 for (const auto& token : data.tokens()) {
     switch (token.type()) {
-        case krb::Token::Types::Number: {
+        case korobok::token::types::number: {
             float v = token.value<float>().value().get();
             break;
         }
-        case krb::Token::Types::String: {
+        case korobok::token::types::string: {
             std::string s = token.value<std::string>().value().get();
             break;
         }
-        case krb::Token::Types::Bool: {
+        case korobok::token::types::boolean: {
             bool b = token.value<bool>().value().get();
             break;
         }
-        case krb::Token::Types::ArrayNumbers: {
+        case korobok::token::types::array_numbers: {
             auto nums = token.value<std::vector<float>>().value().get();
             break;
         }
-        case krb::Token::Types::ArrayStrings: {
+        case korobok::token::types::array_strings: {
             auto strs = token.value<std::vector<std::string>>().value().get();
             break;
         }
-        case krb::Token::Types::Group: {
+        case korobok::token::types::group: {
             // section marker — name is in token.name()
             break;
         }
@@ -215,7 +215,7 @@ for (const auto& token : data.tokens()) {
 `operator[]` automatically creates a token if it doesn't exist yet:
 
 ```cpp
-krb::Krb data;
+korobok::krb data;
 data.from("version:1.0\n");
 
 // Modify an existing token
@@ -235,7 +235,7 @@ data["build_tag"] = "nightly";
 ### Serialization
 
 ```cpp
-krb::Krb data;
+korobok::krb data;
 data.from("name:\"test\"\nvalue:42.0\nflags:[1,0,1]\n");
 
 data["name"]  = std::string("updated");
