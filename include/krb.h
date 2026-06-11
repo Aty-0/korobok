@@ -11,6 +11,7 @@
 #include <variant>
 #include <cstdint>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <span>
 #include <format>
@@ -72,11 +73,12 @@ namespace korobok {
         // Dummy function to make something like this: 1,2,3,4,5...
         template<typename T>
         static inline std::string join_with(std::span<const T> arr, std::string_view with) { 
-            std::string finalStr { };
+            std::stringstream stream;
             for (const auto& element : arr) {
-                finalStr += std::format("{}{}", element, with);
+                stream << element << with;
             }
 
+            const auto finalStr = stream.str();
             return finalStr.substr(0, finalStr.size() - with.size());
         }
     }
@@ -107,7 +109,8 @@ namespace korobok {
             // Array types 
             // TODO: support for vector of std::int8_t, std::int16_t, std::int32_t, std::int64_t, double
             std::vector<float>,
-            std::vector<std::string>
+            std::vector<std::string>,
+            std::vector<const char*>
         >;
 
         template <typename T>
@@ -117,8 +120,15 @@ namespace korobok {
             std::is_same_v<T, float> ||
             std::is_same_v<T, bool> ||
             std::is_same_v<T, std::vector<std::string>> ||
+            std::is_same_v<T, std::vector<const char*>> ||
             std::is_same_v<T, std::vector<float>>;
 
+
+        template <typename T>
+        static constexpr bool is_valid_array_value_type = 
+            std::is_same_v<T, std::string> || 
+            std::is_same_v<T, const char*> || 
+            std::is_same_v<T, float>;
 
         constexpr token() :
             m_name { },
@@ -154,7 +164,7 @@ namespace korobok {
         requires token::is_valid_value_type<T>
         [[nodiscard]] constexpr std::optional<std::reference_wrapper<const T>> value() const;
         
-        [[nodiscard]] const value_variants& raw_variant() const;
+        [[nodiscard]] const value_variants& raw_value() const;
 
         template <typename T>
         requires token::is_valid_value_type<T>
@@ -168,6 +178,18 @@ namespace korobok {
         requires token::is_valid_value_type<std::decay_t<T>>
         token& operator=(T&& right);
 
+        template <typename T>
+        requires token::is_valid_array_value_type<std::decay_t<T>>
+        token& operator=(std::initializer_list<T> right);
+
+        template <typename T>
+        requires token::is_valid_value_type<std::decay_t<T>>
+        bool operator !=(const T& right);
+
+        template <typename T>
+        requires token::is_valid_value_type<std::decay_t<T>>
+        bool operator ==(const T& right);
+
 
         [[nodiscard]] static constexpr types value_type(const value_variants& value);
 
@@ -178,7 +200,7 @@ namespace korobok {
             types m_type;
     };
 
-    inline const token::value_variants& token::raw_variant() const {
+    inline const token::value_variants& token::raw_value() const {
         return m_value;
     }
 
@@ -236,7 +258,35 @@ namespace korobok {
     
     template <typename T>
     requires token::is_valid_value_type<std::decay_t<T>>
-    token& token::operator=(T&& right) {
+    inline bool token::operator !=(const T& right) {
+        auto result = value<T>();
+        if (!result.has_value()) {
+            return false;
+        }
+
+        return result.value() != right;
+    }
+
+    template <typename T>
+    requires token::is_valid_value_type<std::decay_t<T>>
+    inline bool token::operator ==(const T& right) {
+        auto result = value<T>();
+        if (!result.has_value()) {
+            return false;
+        }
+
+        return result.value() == right;
+    }
+    
+    template <typename T>
+    requires token::is_valid_array_value_type<std::decay_t<T>>
+    inline token& token::operator=(std::initializer_list<T> right) {
+        return *operator=(std::vector<T> { right.begin(), right.end() });
+    }
+
+    template <typename T>
+    requires token::is_valid_value_type<std::decay_t<T>>
+    inline token& token::operator=(T&& right) {
         m_value = std::forward<T>(right); 
         m_type = value_type(m_value);    
         return *this;
@@ -260,8 +310,7 @@ namespace korobok {
 
         return result.value();
     }
-
-    
+  
     inline constexpr token::types& token::type() {
         return m_type;
     }
@@ -385,17 +434,20 @@ namespace korobok {
             return "";
         }
 
-        std::string source { };
+        std::stringstream stream { };
         for (const auto& token : m_tokens) {
             switch (token.type()) {
                 case token::types::string: {
+                    // TODO: Refactor
                     const auto& resultString = token.value<std::string>();
                     if (resultString.has_value()) {
-                        source += std::format("{}:\"{}\"\n", token.name(), resultString.value().get());
+                        stream << token.name() << ":" << "\"" << resultString.value().get() << "\"\n";
                     } else {
                         const auto& resultCStr = token.value<const char*>();
                         if (resultCStr.has_value()) {
-                            source += std::format("{}:\"{}\"\n", token.name(), resultCStr.value().get());
+                            stream << token.name() << ":" << "\"" << resultCStr.value().get() << "\"\n";
+                        } else {
+                            KRB_ERROR("failed to write string token, wrong value type");
                         }
                     }
                     break;
@@ -404,35 +456,46 @@ namespace korobok {
                     // TODO: Number type ?
                     const auto& result = token.value<float>();
                     if (result.has_value()) {
-                        source += std::format("{}:{}\n", token.name(), result.value().get());
+                        stream << token.name() << ":" << result.value().get() << "\n";
                     } else {
-                        KRB_ERROR("failed to write number, wrong value type");
+                        KRB_ERROR("failed to write number token, wrong value type");
                     }
                     break;
                 }
                 case token::types::boolean: {
                     const auto& result = token.value<bool>();
                     if (result.has_value()) {
-                        source += std::format("{}:{}\n", token.name(), ((result.value().get()) ? "true" : "false"));
+                        stream << token.name() << ":" << (result.value().get() ? "true" : "false") << "\n";
                     } else {
-                        KRB_ERROR("failed to write bool, wrong value type");
+                        KRB_ERROR("failed to write boolean token, wrong value type");
                     }
                     break;
                 }                 
                 case token::types::array_strings: {
-                    const auto& result = token.value<std::vector<std::string>>();
-                    if (result.has_value()) {
-                        const auto& stringsVector = result.value().get();
+                    // TODO: Refactor
+                    const auto& resultString = token.value<std::vector<std::string>>();
+                    if (resultString.has_value()) {
+                        const auto& stringsVector = resultString.value().get();
                         if (stringsVector.empty()) {
-                            source += std::format("{}:[]\n", token.name());
+                            stream << token.name() << ":[]\n";
                             break;
                         }
-
                         const auto& arrayInString = utils::join_with<std::string>(stringsVector, ",");                    
-                        source += std::format("{}:[{}]\n", token.name(), std::string { arrayInString.begin(), arrayInString.end() });
+                        stream << token.name() << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
+                        
                     } else {
-                        KRB_ERROR("failed to write strings array, wrong value type");
+                        const auto& resultCString = token.value<std::vector<const char*>>();
+                        if (resultCString.has_value()) {
+                            const auto& cStringsVector = resultCString.value().get();
+                            if (cStringsVector.empty()) {
+                                stream << token.name() << ":[]\n";
+                                break;
+                            }
+                            const auto& arrayInString = utils::join_with<const char*>(cStringsVector, ",");                    
+                            stream << token.name() << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";                            
+                        }
                     }
+                    
                     break;
                 }                
                 case token::types::array_numbers: {
@@ -441,19 +504,19 @@ namespace korobok {
                     if (result.has_value()) {
                         const auto& numbersVector = result.value().get();
                         if (numbersVector.empty()) {
-                            source += std::format("{}:[]\n", token.name());
+                            stream << token.name() << ":[]\n";
                             break;
                         }
 
                         const auto& arrayInString = utils::join_with<float>(numbersVector, ","); 
-                        source += std::format("{}:[{}]\n", token.name(), std::string { arrayInString.begin(), arrayInString.end() });
+                        stream << token.name() << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
                     } else {
                         KRB_ERROR("failed to write numbers array, wrong value type");
                     }
                     break;
                 }
                 case token::types::group: {
-                    source += std::format("$:{}\n", token.name());
+                    stream <<"$:" << token.name() << "\n";
                     break;
                 }
                 case token::types::comment:
@@ -463,7 +526,7 @@ namespace korobok {
             }
         }
 
-        return source;
+        return stream.str();
     }
 
     static constexpr auto COMMENT_TOKEN_SYMBOL = '#';

@@ -5,6 +5,16 @@
 #include <optional>
 #include <sstream>
 
+#define KRB_TEST(func, ...) \
+KRB_DEBUG("RUN TEST: {}\n", #func); \
+if (func(__VA_ARGS__)) { \
+    KRB_DEBUG("PASSED TEST: {}\n", #func); \
+} else { \
+    KRB_ERROR("FAILED TEST: {}\n", #func); \
+} \
+
+
+
 namespace korobok::io {
     inline static std::optional<std::string> load_file(std::string_view path) {
         if (path.empty()) {
@@ -56,12 +66,12 @@ namespace korobok::io {
     }
 }
 
-static void test_parse_tokens(std::string_view source) {
+static bool test_parse_tokens(std::string_view source) {
     korobok::krb data { };
     const auto& result = data.from(source);
     if (!result.has_value()) {
         KRB_ERROR("failed to read sources");
-        return;
+        return false;
     }
 
     const auto& tokens = result.value();
@@ -91,7 +101,9 @@ static void test_parse_tokens(std::string_view source) {
                             stream << " ";
                     }                    
                     stream << "]";
-                }
+                } else {
+                    return false;
+                }                
                 
                 break;
             }
@@ -99,21 +111,27 @@ static void test_parse_tokens(std::string_view source) {
                 const auto result = token.value<float>();
                 if (result.has_value()) {
                     stream << "value:" << result.value().get();
-                }
+                } else {
+                    return false;
+                }                
                 break;
             }
             case korobok::token::types::string: {
                 const auto result = token.value<std::string>();
                 if (result.has_value()) {
                     stream << "value:" << result.value().get();
-                }
+                } else {
+                    return false;
+                }                
                 break;
             }
             case korobok::token::types::boolean: {
                 const auto result = token.value<bool>();
                 if (result.has_value()) {
                     stream << "value:" << (result.value().get() ? "true" : "false");
-                }                        
+                } else {
+                    return false;
+                }                      
                 break;
             }
             default: {
@@ -125,41 +143,69 @@ static void test_parse_tokens(std::string_view source) {
 
         KRB_DEBUG("- {}", stream.str());
     }
+
+    return true;
 } 
 
-void test_get_token_value_float(std::string_view source, std::string_view name) {    
+bool test_get_token_value_float(std::string_view source, std::string_view name) {    
     korobok::krb data { };
     if (!data.from(source).has_value()) {
         KRB_ERROR("failed to parse source");
-        return;
+        return false;
     }
 
     const float floatValue = data[name];
     KRB_DEBUG("get token; name: {} value: {}", name, floatValue);
+
+    return true;
 }
 
-void test_dump(std::string_view source) {
+bool test_dump(std::string_view source) {
     korobok::krb data { };
     if (!data.from(source).has_value()) {
         KRB_ERROR("failed to parse source");
-        return;
+        return false;
     }
 
     std::string stringValue = data["string_value"];
+    if (stringValue.empty()) {
+        KRB_ERROR("string_value is empty");
+        return false;
+    }
+
     KRB_DEBUG("get 1: {}", stringValue);
     // Change value 
     stringValue = "bye bye world!";
     KRB_DEBUG("get 2: {}", stringValue);
     data["string_value"] = stringValue;
 
+    if (stringValue != std::string(data["string_value"])) { // TODO: check without explicit cast
+        KRB_ERROR("wrong value setted for string_value");
+        return false;
+    }
+
     // Raw string test
     data["new_value_string"] = "hello";
     const auto saved_type = korobok::token::type_str(data["new_value_string"].type());
-    const auto value_type = korobok::token::type_str(korobok::token::value_type(data["new_value_string"].raw_variant()));
+    const auto value_type = korobok::token::type_str(korobok::token::value_type(data["new_value_string"].raw_value()));
     KRB_DEBUG("string, saved_type: {}, value_type: {}, value: {}", saved_type, value_type, static_cast<const char*>(data["new_value_string"]));
-    
-    data["new_value_number"] = 3.14f;
-    
+    if (value_type != saved_type) {
+        KRB_ERROR("value_type != saved_type");
+        return false;
+    }
+
+    data["new_value_init_list_str"] = { "hello", "hi" };
+    data["new_value_init_list_num"] = { 1.0f, 2.0f };
+
+    static constexpr auto pi = 3.14f; 
+    data["new_value_number"] = pi;
+    if (data["new_value_number"] != pi) {
+        KRB_ERROR("new_value_number != pi");
+        return false;
+    }
+
+
+
     std::vector<float> vec = data["number_array_value"];
     for (auto i : vec) {
         KRB_DEBUG("{}", i);
@@ -169,7 +215,12 @@ void test_dump(std::string_view source) {
     KRB_DEBUG("data:\n{}", dumpData);
     if (!dumpData.empty()) {
         korobok::io::save_file("test2.krb" , std::vector<char> { dumpData.begin(), dumpData.end() });
+    } else {
+        KRB_ERROR("data dump is empty");
+        return false;
     }
+
+    return true;
 }
 
 int main() {
@@ -180,29 +231,17 @@ int main() {
         }
         const auto& source = fileResult.value();
         
-        KRB_DEBUG("========================");
-        KRB_DEBUG("test_parse_tokens");
-        KRB_DEBUG("========================");
+        KRB_TEST(test_parse_tokens, source);
 
-        test_parse_tokens(source);
-
-        KRB_DEBUG("========================");
-        KRB_DEBUG("test_get_token_value_float");
-        KRB_DEBUG("========================");
-
-        test_get_token_value_float(source, "number_value");
-        test_get_token_value_float(source, "number_dec_value");
-
-        KRB_DEBUG("========================");
-        KRB_DEBUG("test_dump");
-        KRB_DEBUG("========================");
-
-        test_dump(source);
+        KRB_TEST(test_get_token_value_float, source, "number_value");
+        KRB_TEST(test_get_token_value_float, source, "number_dec_value");
+        
+        KRB_TEST(test_dump, source);
 
     } catch (const std::bad_variant_access& ex) {
-        KRB_ERROR("fatal:{}", ex.what());
+        KRB_ERROR("test failed, got fatal error:{}", ex.what());
     } catch (const std::invalid_argument& ex) {
-        KRB_ERROR("fatal:{}", ex.what());
+        KRB_ERROR("test failed, got fatal error:{}", ex.what());
     }
     
     return 1;
