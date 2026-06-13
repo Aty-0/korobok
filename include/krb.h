@@ -110,11 +110,13 @@ namespace korobok {
             std::int64_t,
             std::uint64_t,
             float, 
-            double>;
+            double
+        >;
 
-        using strings_types_tuple = std::tuple<
+        using other_types_tuple = std::tuple<
             std::string,
-            const char*>;
+            bool
+        >;
         
         template <typename T>
         struct tuple_vec_variants_convert_trait;
@@ -141,10 +143,10 @@ namespace korobok {
         };
 
         using numbers_types_variants = tuple_variants_convert_trait<numbers_types_tuple>::type;
-        using strings_types_variants = tuple_variants_convert_trait<strings_types_tuple>::type;
+        using other_types_variants = tuple_variants_convert_trait<other_types_tuple>::type;
         
         using numbers_vec_types_variants = tuple_vec_variants_convert_trait<numbers_types_tuple>::type;
-        using strings_vec_types_variants = tuple_vec_variants_convert_trait<strings_types_tuple>::type;
+        using other_vec_types_variants = tuple_vec_variants_convert_trait<other_types_tuple>::type;
 
         template <typename... T>
         struct variant_cat_trait;
@@ -169,16 +171,14 @@ namespace korobok {
         using is_type_in_tuple = is_type_in_tuple_trait<T, U...>;
 
         using numbers_vec_types_tuple = vec_tuple_value_traits<numbers_types_tuple>::type;
-        using strings_vec_types_tuple = vec_tuple_value_traits<strings_types_tuple>::type;
+        using other_vec_types_tuple = vec_tuple_value_traits<other_types_tuple>::type;
 
         template <typename T>
         static constexpr bool is_supported_type = 
-            std::is_same<T, bool>::value || 
             is_type_in_tuple<T, numbers_types_tuple>::value ||
-            is_type_in_tuple<T, strings_types_tuple>::value ||
-            std::is_same<T, std::vector<bool>>::value || 
+            is_type_in_tuple<T, other_types_tuple>::value ||
             is_type_in_tuple<T, numbers_vec_types_tuple>::value ||
-            is_type_in_tuple<T, strings_vec_types_tuple>::value;
+            is_type_in_tuple<T, other_vec_types_tuple>::value;
 
         using numbers_type_entry = std::tuple<std::string_view, numbers_types_variants>;
         static constexpr numbers_type_entry numbers_type_map[] = {
@@ -210,11 +210,11 @@ namespace korobok {
 
         // The all valid value types for token
         using value_variants = detail::variant_cat_trait<
-            std::variant<std::monostate, bool>, 
+            std::variant<std::monostate>, 
             detail::numbers_types_variants,
-            detail::strings_types_variants,
+            detail::other_types_variants,
             detail::numbers_vec_types_variants,
-            detail::strings_vec_types_variants>::type;
+            detail::other_vec_types_variants>::type;
         
         token() :
             m_name { },
@@ -276,6 +276,9 @@ namespace korobok {
         requires detail::is_supported_type<std::decay_t<T>>
         token& operator=(std::initializer_list<T> right);
 
+        token& operator=(const char* right);
+        token& operator=(std::string_view right);
+
         template <typename T>
         requires detail::is_supported_type<std::decay_t<T>>
         token& operator=(std::vector<T> right);
@@ -299,7 +302,7 @@ namespace korobok {
                 return token::types::number;
             }
             
-            if constexpr (detail::is_type_in_tuple<T, detail::strings_types_tuple>::value) {
+            if constexpr (std::is_same<T, std::string>::value) {
                 return token::types::string;
             }
 
@@ -307,7 +310,7 @@ namespace korobok {
                 return token::types::array_numbers;
             }
 
-            if constexpr (detail::is_type_in_tuple<T, detail::strings_vec_types_tuple>::value) {
+            if constexpr (std::is_same<T, std::vector<std::string>>::value) {
                 return token::types::array_strings;
             }
 
@@ -399,6 +402,19 @@ namespace korobok {
     requires detail::is_supported_type<T>
     inline token& token::operator=(const T& right) {
         m_value = right; 
+        m_type = value_type(m_value);    
+        return *this;
+    }
+
+    inline token& token::operator=(const char* right) {
+        m_value = std::string(right); 
+        m_type = value_type(m_value);    
+        return *this;
+
+    }
+
+    inline token& token::operator=(std::string_view right) {
+        m_value = std::string(right); 
         m_type = value_type(m_value);    
         return *this;
     }
@@ -575,26 +591,26 @@ namespace korobok {
         for (const auto& token : m_tokens) {
             switch (token.type()) {
                 case token::types::string: {
-                    const auto& result = find_value_type<detail::strings_types_tuple, detail::strings_types_variants>(token);
+                    const auto& result = token.value<std::string>();
                     if (result.has_value()) {
-                        std::visit([&](const auto& v) {
-                            stream << token.name() << ":" << "\"" << v << "\"\n";
-                        }, result.value());
+                        stream << token.name() << ":" << "\"" << result.value().get() << "\"\n";
+                    } else {
+                        KRB_ERROR("failed to write string token, wrong value type");
                     }
-
                     break;
                 }
                 case token::types::number: {
                     const auto& result = find_value_type<detail::numbers_types_tuple, detail::numbers_types_variants>(token);
                     if (result.has_value()) {
+                        stream << token.name();
                         std::visit([&](const auto& v) {
                             using type = std::decay_t<decltype(v)>;
                             if constexpr (std::is_same<type, std::int8_t>::value 
                                 || std::is_same<type, std::uint8_t>::value
                                 || std::is_same<type, char>::value) { // Convert int8 to int32 because stream are convert it to character
-                                stream << token.name() << ":" << static_cast<std::int32_t>(v) << "\n";
+                                stream << ":" << static_cast<std::int32_t>(v) << "\n";
                             } else {
-                                stream << token.name() << ":" << v << "\n";
+                                stream << ":" << v << "\n";
                             }
                         }, result.value());
                     }
@@ -610,20 +626,17 @@ namespace korobok {
                     break;
                 }                 
                 case token::types::array_strings: {
-                    const auto& result = find_value_type<detail::strings_vec_types_tuple, detail::strings_vec_types_variants>(token);
-                    if (result.has_value()) {
-                        std::visit([&](const auto& v) {
-                            if (v.empty()) {
-                                // TODO: 
-                                return;
-                            }
-                            
-                            using element_type = typename std::decay_t<decltype(v)>::value_type;
-                            const auto& arrayInString = utils::join_with<element_type>(v, ",");                    
-                            stream << token.name() << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
-                        }, result.value());
+                    const auto& result = token.value<std::vector<std::string>>();
+                    if (result.has_value()) {                                     
+                        const auto& vec = result.value().get();       
+                        if (vec.empty()) {
+                            stream << token.name() << ":[]\n";                        
+                        }
+
+                        const auto& arrayInString = utils::join_with<std::string>(vec, ",");                    
+                        stream << token.name() << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
                     } else {
-                        stream << token.name() << ":[]\n";
+                        KRB_ERROR("failed to write string token, wrong value type");
                     }
                     break;
                 }                
@@ -634,6 +647,8 @@ namespace korobok {
                 case token::types::array_numbers: {
                     const auto& result = find_value_type<detail::numbers_vec_types_tuple, detail::numbers_vec_types_variants>(token);
                     if (result.has_value()) {
+                        stream << token.name();
+
                         std::visit([&](const auto& v) {
                             if (v.empty()) {
                                 // TODO: 
@@ -642,7 +657,7 @@ namespace korobok {
 
                             using element_type = typename std::decay_t<decltype(v)>::value_type;
                             const auto& arrayInString = utils::join_with<element_type>(v, ",");                    
-                            stream << token.name() << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
+                            stream << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
                         }, result.value());
                     } else {
                         stream << token.name() << ":[]\n";
