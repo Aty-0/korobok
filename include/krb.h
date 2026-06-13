@@ -18,6 +18,7 @@
 #include <utility>
 #include <tuple>
 #include <concepts>
+#include <cmath>
 
 // NOTE: korobok uses std::format for logs 
 #ifdef KRB_ENABLE_LOGS 
@@ -610,7 +611,17 @@ namespace korobok {
                                 || std::is_same<type, char>::value) { // Convert int8 to int32 because stream are convert it to character
                                 stream << ":" << static_cast<std::int32_t>(v) << "\n";
                             } else {
-                                stream << ":" << v << "\n";
+                                if constexpr (std::is_same<type, float>::value ||
+                                    std::is_same<type, double>::value) { // Numbers with no remainder are stored as [1, 2, 3], breaking type detection
+                                    if (std::remainder(v, 1) != 0) {
+                                        stream << ":" << v << "\n";
+                                    } else {
+                                        stream << ":" << v << ".0" << "\n";
+                                    }
+
+                                } else {
+                                    stream << ":" << v << "\n";
+                                }
                             }
                         }, result.value());
                     }
@@ -651,16 +662,48 @@ namespace korobok {
 
                         std::visit([&](const auto& v) {
                             if (v.empty()) {
-                                // TODO: 
+                                stream << ":[]\n";
                                 return;
                             }
 
+                            using type = std::decay_t<decltype(v)>;
                             using element_type = typename std::decay_t<decltype(v)>::value_type;
-                            const auto& arrayInString = utils::join_with<element_type>(v, ",");                    
-                            stream << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
+
+                            if constexpr (std::is_same<element_type, std::int8_t>::value 
+                                || std::is_same<element_type, std::uint8_t>::value
+                                || std::is_same<element_type, char>::value) { // Convert int8 to int32 because stream are convert it to character
+                                std::vector<std::int32_t> _elements { };
+                                for (auto element : v) {
+                                    _elements.push_back(static_cast<std::int32_t>(element));
+                                }
+                                
+                                const auto& arrayInString = utils::join_with<std::int32_t>(_elements, ",");                    
+                                stream << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
+                                return;
+                            } else {
+                                if constexpr (std::is_same<element_type, float>::value || std::is_same<element_type, double>::value) {                                    
+                                    std::vector<std::string> _elements { };
+                                    for (auto element : v) {
+                                        if (std::remainder(element, 1) == 0) { // Numbers with no remainder are stored as [1, 2, 3], breaking type detection
+                                            _elements.push_back(std::format("{}.0", element));
+                                        } else {
+                                            _elements.push_back(std::format("{}", element));
+                                        }
+                                    }
+
+                                    const auto& arrayInString = utils::join_with<std::string>(_elements, ",");                    
+                                    stream << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
+                                    return;
+                                }
+
+                                const auto& arrayInString = utils::join_with<element_type>(v, ",");                    
+                                stream << ":[" << std::string { arrayInString.begin(), arrayInString.end() } << "]\n";
+                            }
+
                         }, result.value());
                     } else {
-                        stream << token.name() << ":[]\n";
+                        // TODO: 
+                        stream << ":[]\n";
                     }
                     break;
                 }
