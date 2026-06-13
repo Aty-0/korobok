@@ -26,10 +26,11 @@ Each line is a single entry in the `name:value` format. Supported types:
 # String (must be quoted)
 app_name:"My Application"
 
-# Number (float)
+# Numbers
 version:1.5
-count:42
-
+count:32
+# Type prefix
+count_i16:i16;42
 # Boolean
 debug_mode:true
 is_fullscreen:false
@@ -67,7 +68,7 @@ Then include the header:
 
 ### Requirements
 
-- CMake ≥ 3.20
+- CMake 3.20+
 - A C++20-capable compiler (GCC 12+, Clang 14+, MSVC 19.29+)
 - Ninja (recommended, used by the presets)
 
@@ -97,9 +98,9 @@ const auto& result = data.from(
 );
 if (result.has_value()) {
     const auto& value = result.value(); // List of tokens
-// success
+    // success
 } else {
-// fail
+    // fail
 }
 ```
 
@@ -111,15 +112,17 @@ if (result.has_value()) {
 
 ```cpp
 korobok::krb data;
-data.from("score:99.5\nname:\"Player One\"\nactive:true\n");
+data.from("score:99.5\nname:\"Player One\"\nactive:true\nmoney:i16;2300\nhp:100");
 
 float       score  = data["score"];  // 99.5
+std::int16_t money  = data["money"];  // 2300
+std::int32_t money  = data["hp"];  // 100
 std::string name   = data["name"];   // "Player One"
 bool        active = data["active"]; // true
 ```
 
 > Throws `std::bad_variant_access` if the requested type doesn't match.
-
+> For different numbers types you need to write prefix in krb file: i64; i32; i16; i8; u64; u32; u16; u8; f; d; 
 #### `token()` — safe lookup via `std::optional`
 
 ```cpp
@@ -166,46 +169,6 @@ for (auto v : nums) {
     // 10.0, 20.0, 30.0
 }
 
-```
-
----
-
-### Iterating over tokens
-
-```cpp
-korobok::krb data;
-data.from("x:1.0\ny:2.0\nlabel:\"origin\"\n");
-
-for (const auto& token : data.tokens()) {
-    switch (token.type()) {
-        case korobok::token::types::number: {
-            float v = token.value<float>().value().get();
-            break;
-        }
-        case korobok::token::types::string: {
-            std::string s = token.value<std::string>().value().get();
-            break;
-        }
-        case korobok::token::types::boolean: {
-            bool b = token.value<bool>().value().get();
-            break;
-        }
-        case korobok::token::types::array_numbers: {
-            auto nums = token.value<std::vector<float>>().value().get();
-            break;
-        }
-        case korobok::token::types::array_strings: {
-            auto strs = token.value<std::vector<std::string>>().value().get();
-            break;
-        }
-        case korobok::token::types::group: {
-            // section marker — name is in token.name()
-            break;
-        }
-        default:
-            break;
-    }
-}
 ```
 
 ---
