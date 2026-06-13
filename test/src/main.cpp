@@ -222,7 +222,7 @@ bool test_dump(std::string_view source) {
     data["new_value_string"] = "hello";
     const auto saved_type = korobok::token::type_str(data["new_value_string"].type());
     const auto value_type = korobok::token::type_str(korobok::token::value_type(data["new_value_string"].raw_value()));
-    KRB_DEBUG("string, saved_type: {}, value_type: {}, value: {}", saved_type, value_type, static_cast<const char*>(data["new_value_string"]));
+    KRB_DEBUG("string, saved_type: {}, value_type: {}, value: {}", saved_type, value_type, std::string { data["new_value_string"] });
     if (value_type != saved_type) {
         KRB_ERROR("value_type != saved_type");
         return false;

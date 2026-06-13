@@ -5,7 +5,7 @@ $:group_test
 # number value test
 number_value: 1
 number_value_int8:i8; 127
-number_dec_value: 1.5
+number_dec_value: 1.0
 
 # empty array test 
 empty_array_test: []
@@ -19,7 +19,9 @@ bool_false_value: false
 
 # array of numbers test
 number_array_value: [1, 2, 3, 4]
+number_array_value_2:i8; [1, 2, 3, 4]
 number_dec_array_value: [1.5, 2.3, 3.2, 4.6]
+number_dec_array_value_2: [1.0, 2.0, 3.0, 4.0]
 
 # array of strings test
 string_array_value: ["hello", "world", "!"]
