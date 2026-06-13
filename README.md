@@ -116,7 +116,7 @@ data.from("score:99.5\nname:\"Player One\"\nactive:true\nmoney:i16;2300\nhp:100"
 
 float       score  = data["score"];  // 99.5
 std::int16_t money  = data["money"];  // 2300
-std::int32_t money  = data["hp"];  // 100
+std::int32_t hp  = data["hp"];  // 100
 std::string name   = data["name"];   // "Player One"
 bool        active = data["active"]; // true
 ```
