@@ -86,9 +86,9 @@ static bool test_parse_tokens(std::string_view source) {
                 break;
             }
             case korobok::token::types::array_numbers: { 
-                const auto& result = token.value<std::vector<float>>();
-                if (result.has_value()) {
-                    const auto& vecValue = result.value().get();
+                const auto& resultF = token.value<std::vector<float>>();
+                if (resultF.has_value()) {
+                    const auto& vecValue = resultF.value().get();
                     if (vecValue.empty()) {
                         stream << "has empty array!\n";
                         continue;
@@ -101,20 +101,53 @@ static bool test_parse_tokens(std::string_view source) {
                             stream << " ";
                     }                    
                     stream << "]";
-                } else {
-                    return false;
-                }                
+                    break;
+                } 
+
+                const auto& resultI32 = token.value<std::vector<std::int32_t>>();
+                if (resultI32.has_value()) {
+                    const auto& vecValue = resultI32.value().get();
+                    if (vecValue.empty()) {
+                        stream << "has empty array!\n";
+                        continue;
+                    }
+
+                    stream << "[";
+                    for (auto i : vecValue) {
+                        stream << i;
+                        if (i != vecValue.back()) 
+                            stream << " ";
+                    }                    
+                    stream << "]";
+                    break;
+                }             
                 
-                break;
+                return false;
             }
             case korobok::token::types::number: {
-                const auto result = token.value<float>();
-                if (result.has_value()) {
-                    stream << "value:" << result.value().get();
-                } else {
-                    return false;
+                const auto& resultFloat = token.value<float>();
+                if (resultFloat.has_value()) {
+                    const auto value = resultFloat.value().get(); 
+                    stream << "value:" << value;
+                    break;
                 }                
-                break;
+
+                const auto& resultInt32 = token.value<std::int32_t>();
+                if (resultInt32.has_value()) {
+                    const auto value = resultInt32.value().get();
+                    stream << "value:" << value;
+                    break;
+                }  
+
+                const auto& resultInt8 = token.value<std::int8_t>();
+                if (resultInt8.has_value()) {
+                    const auto value = resultInt8.value().get();
+                    stream << "value:" << value;
+                    break;
+                }                
+
+
+                return false;
             }
             case korobok::token::types::string: {
                 const auto result = token.value<std::string>();
@@ -147,15 +180,16 @@ static bool test_parse_tokens(std::string_view source) {
     return true;
 } 
 
-bool test_get_token_value_float(std::string_view source, std::string_view name) {    
+template <typename T>
+bool test_get_token_value(std::string_view source, std::string_view name) {    
     korobok::krb data { };
     if (!data.from(source).has_value()) {
         KRB_ERROR("failed to parse source");
         return false;
     }
 
-    const float floatValue = data[name];
-    KRB_DEBUG("get token; name: {} value: {}", name, floatValue);
+    const T value = data[name];
+    KRB_DEBUG("get token; name: {} value: {}", name, value);
 
     return true;
 }
@@ -204,9 +238,7 @@ bool test_dump(std::string_view source) {
         return false;
     }
 
-
-
-    std::vector<float> vec = data["number_array_value"];
+    std::vector<float> vec = data["number_dec_array_value"];
     for (auto i : vec) {
         KRB_DEBUG("{}", i);
     }
@@ -233,8 +265,9 @@ int main() {
         
         KRB_TEST(test_parse_tokens, source);
 
-        KRB_TEST(test_get_token_value_float, source, "number_value");
-        KRB_TEST(test_get_token_value_float, source, "number_dec_value");
+        KRB_TEST(test_get_token_value<std::int8_t>, source, "number_value_int8");
+        KRB_TEST(test_get_token_value<std::int32_t>, source, "number_value");
+        KRB_TEST(test_get_token_value<float>, source, "number_dec_value");
         
         KRB_TEST(test_dump, source);
 
